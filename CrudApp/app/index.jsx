@@ -1,15 +1,71 @@
-import { Text, View, TextInput, Pressable, StyleSheet, FlatList } from "react-native";
+import { Text, View, TextInput, Pressable, StyleSheet, FlatList, Platform } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { useState } from "react";
+import { useState, useContext, useEffect } from "react";
+import { ThemeContext } from '@/context/ThemeContext';
 
 import { data } from '@/data/todos';
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import Octicons from '@expo/vector-icons/Octicons';
+import { Inter_900Black_Italic, useFonts } from '@expo-google-fonts/inter';
+import Animated, { LinearTransition } from 'react-native-reanimated';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { StatusBar } from "expo-status-bar";
+
 
 export default function Index() {
   // swapping of a and b to ensure the highest id starts first
-  const [todos, setTodos] = useState(data.sort((a, b) => b.id - a.id));
+  const [todos, setTodos] = useState([]);
   const [text, setText] = useState('');
+  
+  const { colorScheme, setColorScheme, theme } = useContext(ThemeContext);
+
+  const [fontsLoaded] = useFonts({
+    Inter_900Black_Italic, 
+  });
+
+  // load the updated data from AsyncStorage upon app start. otherwise load the default data (data.js)
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const jsonValue = await AsyncStorage.getItem("TodoApp")
+        const storageTodos = jsonValue != null ? JSON.parse(jsonValue) : null
+
+        if (storageTodos && storageTodos.length) {
+          setTodos(storageTodos.sort((a, b) => b.id - a.id))
+        } else {
+          setTodos(data.sort((a, b) => b.id - a.id))
+        }
+      } catch (e) {
+        console.error(e)
+      }
+    }
+
+    fetchData()
+  }, [data])
+
+  // any changes made is updated to AsyncStorage  r
+  useEffect(() => {
+    const storeData = async () => {
+      try {
+        const jsonValue = JSON.stringify(todos)
+        await AsyncStorage.setItem("TodoApp", jsonValue)
+      } catch (e) {
+        console.error(e)
+      }
+    }
+
+    storeData()
+  }, [todos])
+  
+  if (!fontsLoaded)
+  {
+    return null;
+  }
+
+  const styles = createStyles(theme, colorScheme);
+
+  // to add new todo 
   const addTodo = () => {
     if (text.trim()) {
       const newId = todos.length > 0 ? todos[0].id + 1 : 1;
@@ -34,6 +90,7 @@ export default function Index() {
     setTodos(updatedTodos);
   }
 
+  // list of added items
   const renderItem = ({ item }) => (
     <View style={styles.todoItem}>
       <Text 
@@ -61,22 +118,47 @@ export default function Index() {
         <Pressable onPress={addTodo} style={styles.addButton}>
           <Text style={styles.addButtonText}>Add</Text>
         </Pressable>
+        <Pressable 
+          onPress={() => setColorScheme(colorScheme === 'light' ? 'dark' : 'light')} 
+          style ={{ marginLeft: 10}}>
+            {colorScheme === 'dark'
+              ? <Octicons 
+                  name="moon" 
+                  size ={36} 
+                  color={theme.text} 
+                  selectable={undefined}
+                  style={{ width: 36 }}
+                />
+              : <Octicons 
+                  name="sun" 
+                  size ={36} 
+                  color={theme.text} 
+                  selectable={undefined}
+                  style={{ width: 36 }}
+                />
+            }
+        </Pressable>
       </View>
 
-      <FlatList
+      <Animated.FlatList
         data={todos}
         renderItem={renderItem}
         keyExtractor={todo => todo.id}
         contentContainerStyle={{ flexGrow: 1 }}
+        // this animates
+        itemLayoutAnimation={LinearTransition}
+        keyboardDismissMode="on-drag"
       />
+      {Platform.OS === 'android' && <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />}
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme, colorScheme) {
+  return StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: 'black',
+      backgroundColor: theme.background,
     },
     inputContainer: {
       flexDirection: 'row',
@@ -96,17 +178,18 @@ const styles = StyleSheet.create({
       padding: 10,
       marginRight: 10,
       fontSize: 18,
+      fontFamily: 'Inter_900Black_Italic',
       minWidth: 0,
-      color: 'white',
+      color: theme.text,
     },
     addButton: {
-      backgroundColor: 'white',
+      backgroundColor: theme.button,
       borderRadius: 5,
       padding: 10,
     },
     addButtonText: {
       fontSize: 18,
-      color: 'black',
+      color: colorScheme === 'dark' ? 'black' : 'white',
     },
     todoItem: {
       flexDirection: 'row',
@@ -124,10 +207,12 @@ const styles = StyleSheet.create({
     todoText: {
       flex: 1,
       fontSize: 18,
-      color: 'white',
+      color: theme.text,
+      fontFamily: 'Inter_900Black_Italic',
     },
     completedText: {
       textDecorationLine: 'line-through',
       color: 'gray',
     }
   })
+};
