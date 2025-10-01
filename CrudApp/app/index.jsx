@@ -11,18 +11,36 @@ import { Inter_900Black_Italic, useFonts } from '@expo-google-fonts/inter';
 import Animated, { LinearTransition } from 'react-native-reanimated';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StatusBar } from "expo-status-bar";
+import { useRouter } from "expo-router";
 
 
 export default function Index() {
   // swapping of a and b to ensure the highest id starts first
   const [todos, setTodos] = useState([]);
   const [text, setText] = useState('');
+  const router = useRouter();
   
   const { colorScheme, setColorScheme, theme } = useContext(ThemeContext);
 
   const [fontsLoaded] = useFonts({
     Inter_900Black_Italic, 
   });
+
+  // to use only to clear data
+  // useEffect(() => {
+  //   const resetAndLoadDefaults = async () => {
+  //     try {
+  //       // Remove all saved todos
+  //       await AsyncStorage.removeItem("TodoApp");
+  //       // Load default todos from data.js
+  //       setTodos(data.sort((a, b) => b.id - a.id));
+  //     } catch (e) {
+  //       console.error(e);
+  //     }
+  //   };
+
+  //   resetAndLoadDefaults();
+  // }, []);
 
   // load the updated data from AsyncStorage upon app start. otherwise load the default data (data.js)
   useEffect(() => {
@@ -90,15 +108,25 @@ export default function Index() {
     setTodos(updatedTodos);
   }
 
+  const handlePress = (id) => {
+    router.push(`/todos/${id}`);
+  }
+
   // list of added items
   const renderItem = ({ item }) => (
     <View style={styles.todoItem}>
-      <Text 
-        style={[styles.todoText, item.completed && styles.completedText]}
-        onPress={() => toggleTodo(item.id)}
+      <Pressable 
+        onPress={() => handlePress(item.id)}
+        onLongPress={() => toggleTodo(item.id)}
       >
-        {item.title}
-      </Text>
+        <Text 
+          style={[styles.todoText, item.completed && styles.completedText]}
+          
+        >
+          {item.title}
+        </Text>
+      </Pressable>
+      
       <Pressable onPress={() => removeTodo(item.id)}>
         <MaterialCommunityIcons name="delete-circle" size={36} color="peru" selectable={undefined}/>
       </Pressable>
@@ -110,6 +138,7 @@ export default function Index() {
       <View style={styles.inputContainer}>
         <TextInput 
             style={styles.input}
+            maxLength={30}
             placeholder="Add a new todo"
             placeholderTextColor="gray"
             value={text}
@@ -149,7 +178,7 @@ export default function Index() {
         itemLayoutAnimation={LinearTransition}
         keyboardDismissMode="on-drag"
       />
-      {Platform.OS === 'android' && <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />}
+      {(Platform.OS === 'android' || Platform.OS === 'ios') && <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />}
     </SafeAreaView>
   );
 }
